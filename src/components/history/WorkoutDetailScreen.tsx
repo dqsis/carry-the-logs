@@ -4,7 +4,8 @@ import { AppShell } from '../layout/AppShell'
 import { useExercises } from '../../hooks/useExercises'
 import { useWorkoutSets } from '../../hooks/useSets'
 import { fetchWorkoutById, useWorkouts } from '../../hooks/useWorkouts'
-import type { Workout } from '../../lib/types'
+import type { ExerciseGroup } from '../../hooks/useSets'
+import type { Exercise, Workout } from '../../lib/types'
 import { ExerciseBlock } from '../log/ExerciseBlock'
 import { ExercisePicker } from '../log/ExercisePicker'
 import { WorkoutMetaBar } from '../log/WorkoutMetaBar'
@@ -16,12 +17,15 @@ export function WorkoutDetailScreen() {
   const { exercises, findOrCreateExercise } = useExercises()
   const [workout, setWorkout] = useState<Workout | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
+  // Same as the Log screen: a newly picked exercise lives client-side until
+  // its first set is added.
+  const [pendingExercises, setPendingExercises] = useState<Exercise[]>([])
 
   useEffect(() => {
     if (id) fetchWorkoutById(id).then(setWorkout)
   }, [id])
 
-  const { groups, addSets, updateSet, deleteSet } = useWorkoutSets(workout?.id ?? null)
+  const { groups, addSets, updateSet, deleteSet, deleteExerciseSets } = useWorkoutSets(workout?.id ?? null)
 
   if (!workout) {
     return (
@@ -32,6 +36,11 @@ export function WorkoutDetailScreen() {
   }
 
   const activeExerciseIds = new Set(groups.map((g) => g.exerciseId))
+  const emptyGroups: ExerciseGroup[] = pendingExercises
+    .filter((e) => !activeExerciseIds.has(e.id))
+    .map((e) => ({ exerciseId: e.id, exerciseName: e.name, sets: [] }))
+  const displayGroups = [...groups, ...emptyGroups]
+  const excludeFromPickerIds = new Set([...activeExerciseIds, ...pendingExercises.map((e) => e.id)])
 
   return (
     <AppShell title="Workout">
@@ -43,13 +52,17 @@ export function WorkoutDetailScreen() {
         }}
       />
 
-      {groups.map((group) => (
+      {displayGroups.map((group) => (
         <ExerciseBlock
           key={group.exerciseId}
           group={group}
           onAddSet={(reps, weightKg, setsCount) => addSets(group.exerciseId, reps, weightKg, setsCount)}
           onUpdateSet={updateSet}
           onDeleteSet={deleteSet}
+          onDeleteExercise={async () => {
+            await deleteExerciseSets(group.exerciseId)
+            setPendingExercises((prev) => prev.filter((e) => e.id !== group.exerciseId))
+          }}
         />
       ))}
 
@@ -73,12 +86,12 @@ export function WorkoutDetailScreen() {
 
       {pickerOpen && (
         <ExercisePicker
-          exercises={exercises.filter((e) => !activeExerciseIds.has(e.id))}
+          exercises={exercises.filter((e) => !excludeFromPickerIds.has(e.id))}
           onClose={() => setPickerOpen(false)}
           onCreateNew={(name) => findOrCreateExercise(name)}
-          onSelect={async (exercise) => {
+          onSelect={(exercise) => {
             setPickerOpen(false)
-            await addSets(exercise.id, 8, 20, 1)
+            setPendingExercises((prev) => [...prev, exercise])
           }}
         />
       )}

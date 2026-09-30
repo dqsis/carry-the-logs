@@ -26,7 +26,7 @@ export function LogWorkoutScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const { groups, addSets, updateSet, deleteSet } = useWorkoutSets(workout?.id ?? null)
+  const { groups, addSets, updateSet, deleteSet, deleteExerciseSets } = useWorkoutSets(workout?.id ?? null)
 
   if (!workout) {
     return (
@@ -87,6 +87,10 @@ export function LogWorkoutScreen() {
           onAddSet={(reps, weightKg, setsCount) => addSets(group.exerciseId, reps, weightKg, setsCount)}
           onUpdateSet={updateSet}
           onDeleteSet={deleteSet}
+          onDeleteExercise={async () => {
+            await deleteExerciseSets(group.exerciseId)
+            setPendingExercises((prev) => prev.filter((e) => e.id !== group.exerciseId))
+          }}
         />
       ))}
 

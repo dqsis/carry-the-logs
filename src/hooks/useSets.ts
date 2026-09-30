@@ -63,7 +63,10 @@ export function useWorkoutSets(workoutId: string | null) {
       const userId = userData.user?.id
       if (!userId) throw new Error('Not signed in')
 
-      const startingSetNumber = sets.filter((s) => s.exercise_id === exerciseId).length + 1
+      // max + 1 rather than count + 1, so deleting a set mid-list can't lead to
+      // two sets sharing a number.
+      const startingSetNumber =
+        Math.max(0, ...sets.filter((s) => s.exercise_id === exerciseId).map((s) => s.set_number)) + 1
       const rows = Array.from({ length: count }, (_, i) => ({
         user_id: userId,
         workout_id: workoutId,
@@ -97,7 +100,17 @@ export function useWorkoutSets(workoutId: string | null) {
     [refresh],
   )
 
-  return { sets, groups: groupByExercise(sets), loading, addSets, updateSet, deleteSet, refresh }
+  const deleteExerciseSets = useCallback(
+    async (exerciseId: string) => {
+      if (!workoutId) return
+      const { error } = await supabase.from('sets').delete().eq('workout_id', workoutId).eq('exercise_id', exerciseId)
+      if (error) throw error
+      await refresh()
+    },
+    [workoutId, refresh],
+  )
+
+  return { sets, groups: groupByExercise(sets), loading, addSets, updateSet, deleteSet, deleteExerciseSets, refresh }
 }
 
 // Looks up the most recently logged set for an exercise (any workout), used to

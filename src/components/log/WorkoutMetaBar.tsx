@@ -6,9 +6,10 @@ export function WorkoutMetaBar({
   onUpdate,
 }: {
   workout: Workout
-  onUpdate: (patch: Partial<Pick<Workout, 'location' | 'notes' | 'start_time'>>) => Promise<void>
+  onUpdate: (patch: Partial<Pick<Workout, 'location' | 'notes' | 'start_time' | 'workout_date'>>) => Promise<void>
 }) {
   const [expanded, setExpanded] = useState(false)
+  const [date, setDate] = useState(workout.workout_date)
   const [location, setLocation] = useState(workout.location ?? '')
   const [notes, setNotes] = useState(workout.notes ?? '')
 
@@ -30,6 +31,12 @@ export function WorkoutMetaBar({
   return (
     <div className="mb-4 space-y-2 rounded border border-border bg-bg p-3">
       <input
+        type="date"
+        value={date}
+        onChange={(e) => setDate(e.target.value)}
+        className="w-full rounded border border-border px-2 py-1.5 text-sm"
+      />
+      <input
         value={location}
         onChange={(e) => setLocation(e.target.value)}
         placeholder="Location"
@@ -48,7 +55,7 @@ export function WorkoutMetaBar({
         </button>
         <button
           onClick={async () => {
-            await onUpdate({ location, notes })
+            await onUpdate({ workout_date: date || workout.workout_date, location, notes })
             setExpanded(false)
           }}
           className="text-sm font-semibold text-olive"

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { format } from 'date-fns'
 import { supabase } from '../lib/supabaseClient'
 import type { Workout } from '../lib/types'
 
@@ -48,7 +49,9 @@ export function useWorkouts() {
       .limit(1)
       .maybeSingle()
 
-    const today = new Date().toISOString().slice(0, 10)
+    // Local date, not toISOString() (UTC) -- otherwise a workout started just
+    // after midnight local time gets yesterday's date.
+    const today = format(new Date(), 'yyyy-MM-dd')
     const nowTime = new Date().toTimeString().slice(0, 8)
     const { data: created, error: insertError } = await supabase
       .from('workouts')

@@ -3,10 +3,12 @@ import type { SetRow as SetRowData } from '../../lib/types'
 
 export function SetRow({
   set,
+  number,
   onUpdate,
   onDelete,
 }: {
   set: SetRowData
+  number: number
   onUpdate: (patch: { reps: number; weight_kg: number }) => Promise<void>
   onDelete: () => Promise<void>
 }) {
@@ -21,7 +23,7 @@ export function SetRow({
         onClick={() => setEditing(true)}
         className="flex w-full items-center justify-between border-b border-border py-2 text-left last:border-b-0"
       >
-        <span className="text-sm text-mid">Set {set.set_number}</span>
+        <span className="text-sm text-mid">Set {number}</span>
         <span className="font-medium text-ink tabular-nums">
           {set.reps} reps × {set.weight_kg} kg
         </span>
@@ -31,7 +33,7 @@ export function SetRow({
 
   return (
     <div className="flex items-center justify-between gap-2 border-b border-border py-2 last:border-b-0">
-      <span className="text-sm text-mid">Set {set.set_number}</span>
+      <span className="text-sm text-mid">Set {number}</span>
       <div className="flex items-center gap-2">
         <input
           type="number"
