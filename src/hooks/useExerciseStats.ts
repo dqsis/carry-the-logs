@@ -1,48 +1,63 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 
-export interface StatPoint {
-  date: string // yyyy-mm-dd
-  topWeightKg: number
+export interface ExerciseMax {
+  exerciseId: string
+  name: string
+  maxWeightKg: number
+  reps: number // reps of the heaviest set
+  date: string // yyyy-mm-dd of the workout the heaviest set was first hit in
 }
 
-// Top set (highest weight) per workout for the given exercise, oldest first —
-// the shape a line chart wants.
-export function useExerciseStats(exerciseId: string | null) {
-  const [points, setPoints] = useState<StatPoint[]>([])
+// Heaviest set per exercise, across every exercise that has at least one set
+// logged, sorted by exercise name. Ties on weight go to the set with more reps,
+// then to the earliest date (when the max was first achieved).
+export function useExerciseStats() {
+  const [maxes, setMaxes] = useState<ExerciseMax[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!exerciseId) {
-      setPoints([])
-      setLoading(false)
-      return
-    }
     let cancelled = false
-    setLoading(true)
     supabase
       .from('sets')
-      .select('weight_kg, workout:workouts(workout_date)')
-      .eq('exercise_id', exerciseId)
+      .select('exercise_id, reps, weight_kg, exercise:exercises(name), workout:workouts(workout_date)')
       .then(({ data, error }) => {
         if (cancelled) return
         if (error) throw error
-        const byDate = new Map<string, number>()
-        for (const row of (data as unknown as { weight_kg: number; workout: { workout_date: string } | null }[]) ?? []) {
+        const byExercise = new Map<string, ExerciseMax>()
+        for (const row of (data as unknown as {
+          exercise_id: string
+          reps: number
+          weight_kg: number
+          exercise: { name: string } | null
+          workout: { workout_date: string } | null
+        }[]) ?? []) {
+          const name = row.exercise?.name
           const date = row.workout?.workout_date
-          if (!date) continue
-          byDate.set(date, Math.max(byDate.get(date) ?? 0, row.weight_kg))
+          if (!name || !date) continue
+          const current = byExercise.get(row.exercise_id)
+          const isBetter =
+            !current ||
+            row.weight_kg > current.maxWeightKg ||
+            (row.weight_kg === current.maxWeightKg &&
+              (row.reps > current.reps || (row.reps === current.reps && date < current.date)))
+          if (isBetter) {
+            byExercise.set(row.exercise_id, {
+              exerciseId: row.exercise_id,
+              name,
+              maxWeightKg: row.weight_kg,
+              reps: row.reps,
+              date,
+            })
+          }
         }
-        const sorted = [...byDate.entries()]
-          .sort(([a], [b]) => a.localeCompare(b))
-          .map(([date, topWeightKg]) => ({ date, topWeightKg }))
-        setPoints(sorted)
+        setMaxes([...byExercise.values()].sort((a, b) => a.name.localeCompare(b.name)))
         setLoading(false)
       })
     return () => {
       cancelled = true
     }
-  }, [exerciseId])
+  }, [])
 
-  return { points, loading }
+  return { maxes, loading }
 }
